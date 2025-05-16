@@ -1,11 +1,14 @@
 import resumeParser from "../utils/parseResume.js";
 import path from 'path';
 import { fileURLToPath } from 'url';
-import axios from 'axios'; // For making HTTP requests
 import fs from 'fs'; // For reading the JSON file
+import { aiChat } from "../utils/chat.js";
+import data from "../Data/data.js";
+import resumeArray from "../Data/resume.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
 
 const handleUpload = async (req, res) => {
     try {
@@ -13,10 +16,10 @@ const handleUpload = async (req, res) => {
         if (!resume) {
             return res.status(400).json({ message: 'No file uploaded' });
         }
-        
+
         // Construct correct file path
         const filePath = path.join(
-            __dirname, 
+            __dirname,
             '..',
             'uploads',
             'files', // Add the subdirectory if using previous multer config
@@ -24,7 +27,7 @@ const handleUpload = async (req, res) => {
         );
 
         console.log('Processing file at:', filePath);
-        
+
         // Parse the resume and generate JSON
         await resumeParser(filePath); // Ensure this completes before proceeding
 
@@ -51,46 +54,40 @@ const handleUpload = async (req, res) => {
 
         // Read the generated JSON file
         const jsonData = fs.readFileSync(jsonFilePath, 'utf-8');
+        // console.log(jsonData)
         const parsedData = JSON.parse(jsonData);
+        // push the parsed data to the resume array
+        resumeArray.push(parsedData);
+        data.push({
+            text: "Hello! I'm your interviewer. Let's get started.Give me your introduction.",
+            sender: 'ai',
+        });
 
-        // Extract and clean the skills
-        const skillsString = parsedData.skills;
-        if (!skillsString || typeof skillsString !== 'string') {
-            throw new Error('Skills not found or invalid format in JSON');
-        }
+        console.log("Sending data to AI chat:");
+        let chatText = await aiChat(
+            'Act as interviewer and ask next question based on following context. Resume: ' +
+            JSON.stringify(resume) +
+            ' Job Title: ' + req.body.jobTitle +
+            ' Job Description: ' + req.body.jobDescription +
+            ' and the following conversation: ' +
+            JSON.stringify(data) +
+            'NOTE: As a response ask only one question at a time and wait for the user to respond before asking the next question. The next question can be a follow up question on the answer or any other topic based on resume. keep the questions short and concise. '
+        );
 
-        // Clean and extract skills as an array
-        const skills = skillsString
-            .split('\n') // Split by new lines
-            .map(line => line.trim()) // Remove extra spaces
-            .filter(line => line) // Remove empty lines
-            .flatMap(line => line.split(':')[1] ? line.split(':')[1].split(',') : []) // Split by comma after the colon
-            .map(skill => skill.trim()) // Trim each skill
-            .filter(skill => skill); // Remove empty skills
-
-        console.log('Extracted skills:', skills);
-
-        // Sort keywords by length in descending order
-        const sortedKeywords = skills.sort((a, b) => b.length - a.length);
-    
-        // Take only the first 5 keywords
-        const top5Keywords = sortedKeywords.slice(0, 3);
-
-        // Send skills to the external API
-        const apiUrl = 'http://10.40.5.36:8000/generate-questions';
-        const response = await axios.post(apiUrl, { keywords:top5Keywords });
+        console.log('Chat response:', chatText);
 
         // Respond with the result from the external API
         res.status(200).json({
             message: 'File uploaded and processed successfully',
             filename: resume.filename,
-            apiResponse: response.data
+            apiResponse: chatText,
+            sessionId: 'tl8axwft7inqdijcoylnzs',
         });
     } catch (error) {
         console.error('Error in handleUpload:', error);
-        res.status(500).json({ 
+        res.status(500).json({
             message: 'An error occurred while processing the file',
-            error: error.message 
+            error: error.message
         });
     }
 };

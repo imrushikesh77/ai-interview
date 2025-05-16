@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 
 export default function InterviewPage() {
   // Initialize messages with the first default question
-  const [messages, setMessages] = useState([{text:"Hello! I'm your interviewer. Let's get started. Give me your introduction.",sender:"ai"}]);
+  const [messages, setMessages] = useState([{ text: "Hello! I'm your interviewer. Let's get started. Give me your introduction.", sender: "ai" }]);
   const [inputMessage, setInputMessage] = useState('');
   const [isEndDialogOpen, setIsEndDialogOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -25,17 +25,17 @@ export default function InterviewPage() {
           delete options.mimeType;
         }
         const recorder = new MediaRecorder(stream, options);
-        
+
         recorder.ondataavailable = (e) => {
           if (e.data.size > 0) chunksRef.current.push(e.data);
         };
-        
+
         recorder.onstop = () => {
           const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
           setAudioBlob(blob);
           chunksRef.current = [];
         };
-        
+
         setMediaRecorder(recorder);
       })
       .catch(() => {
@@ -90,42 +90,43 @@ export default function InterviewPage() {
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
-    
+
     if (audioBlob) {
       const audioUrl = URL.createObjectURL(audioBlob);
-      setMessages(prev => [...prev, { 
-        sender: 'user', 
-        isAudio: true, 
+      setMessages(prev => [...prev, {
+        sender: 'user',
+        isAudio: true,
         audioUrl,
         text: 'Audio message'
       }]);
-      
+
       const formData = new FormData();
       formData.append('audio', audioBlob, 'recording.webm');
-      
+      formData.append('sessionId', new URLSearchParams(window.location.search).get('sessionId'));
+
       try {
         await fetch('http://localhost:5000/api/v1/interview/voice-upload', {
           method: 'POST',
           body: formData,
         })
-        .then(response => response.json())
-        .then(data => {
-          setMessages(prev => [...prev, 
-            { text: data.question, sender: 'ai' }
-          ]);
-          setCount(prev => prev + 1); // Increment count
-          setSimilarity(prev => {
-            const newCount = count + 1; // Use the updated count value
-            if (newCount === 0) return 0; // Avoid division by zero
-            const newSimilarity = (prev + Number(data.similarity)) / newCount;
-            return newSimilarity;
+          .then(response => response.json())
+          .then(data => {
+            setMessages(prev => [...prev,
+            { text: data.apiResponse.chatText, sender: 'ai' }
+            ]);
+            setCount(prev => prev + 1); // Increment count
+            setSimilarity(prev => {
+              const newCount = count + 1; // Use the updated count value
+              if (newCount === 0) return 0; // Avoid division by zero
+              const newSimilarity = (prev + Number(data.similarity)) / newCount;
+              return newSimilarity;
+            });
+            setInputMessage('');
           });
-          setInputMessage('');
-        });
       } catch (error) {
         console.error('Error sending audio:', error);
       }
-      
+
       setAudioBlob(null);
     } else if (inputMessage.trim()) {
       setMessages(prev => [...prev, { text: inputMessage, sender: 'user' }]);
@@ -154,9 +155,8 @@ export default function InterviewPage() {
           <div className="overflow-y-auto flex-grow">
             {messages.map((message, index) => (
               <div key={index} className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'} mb-4`}>
-                <div className={`inline-block px-4 py-2 rounded-lg shadow ${
-                  message.sender === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted text-card-foreground'
-                }`}>
+                <div className={`inline-block px-4 py-2 rounded-lg shadow ${message.sender === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted text-card-foreground'
+                  }`}>
                   {message.isAudio ? (
                     <audio controls src={message.audioUrl} className="w-48" />
                   ) : (
@@ -171,13 +171,13 @@ export default function InterviewPage() {
             {micAccessError && (
               <div className="text-red-500 text-sm mb-2">{micAccessError}</div>
             )}
-            
+
             {isRecording && (
               <div className="flex items-center text-red-500 text-sm mb-2">
                 <Mic className="h-4 w-4 mr-2" /> Recording...
               </div>
             )}
-            
+
             {audioBlob && (
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm text-muted-foreground">Audio ready to send</span>

@@ -54,7 +54,7 @@ export default function UploadResumeAndJD() {
       }
       const data = await response.json()
       console.log(data);
-      navigate('/interview');
+      navigate('/interview?sessionId=' + data.sessionId);
     } catch (error) {
       console.error('Error uploading data:', error)
     } finally {
@@ -110,9 +110,9 @@ export default function UploadResumeAndJD() {
             </div>
             <div className="flex justify-around items-center">
               <Link to="/interview" className='w-40 bg-black rounded-full flex justify-center'>
-                <Button 
-                  type="submit" 
-                  className={`w-40 bg-transparent text-white transition-colors duration-300 ${!isFormValid ? 'opacity-50 cursor-not-allowed' : ''}`} 
+                <Button
+                  type="submit"
+                  className={`w-40 bg-transparent text-white transition-colors duration-300 ${!isFormValid ? 'opacity-50 cursor-not-allowed' : ''}`}
                   disabled={!isFormValid || isLoading}
                   onClick={handleSubmit}
                 >
@@ -120,8 +120,8 @@ export default function UploadResumeAndJD() {
                 </Button>
               </Link>
               <Link to='/' className='w-40 bg-red-600 rounded-full flex justify-center'>
-                <Button 
-                  className="w-40 bg-transparent text-white transition-colors duration-300" 
+                <Button
+                  className="w-40 bg-transparent text-white transition-colors duration-300"
                 >
                   Back
                 </Button>
