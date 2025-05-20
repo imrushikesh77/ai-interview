@@ -65,13 +65,14 @@ const handleUpload = async (req, res) => {
 
         console.log("Sending data to AI chat:");
         let chatText = await aiChat(
-            'Act as interviewer and ask next question based on following context. Resume: ' +
-            JSON.stringify(resume) +
-            ' Job Title: ' + req.body.jobTitle +
-            ' Job Description: ' + req.body.jobDescription +
-            ' and the following conversation: ' +
-            JSON.stringify(data) +
-            'NOTE: As a response ask only one question at a time and wait for the user to respond before asking the next question. The next question can be a follow up question on the answer or any other topic based on resume. keep the questions short and concise. '
+            'Act as a technical interviewer. Based on the following context, ask only one question at a time.\n' +
+            'Resume: ' + JSON.stringify(resume) + '\n' +
+            'Job Title: ' + req.body.jobTitle + '\n' +
+            'Job Description: ' + req.body.jobDescription + '\n' +
+            'Conversation so far: ' + JSON.stringify(data) + '\n' +
+            'Focus on asking technical and conceptual questions about topics like but not limited to inheritance and abstraction. ' +
+            'Questions should start with "what" and be under 10 words. ' +
+            'Keep questions very simple. Ask only one question at a time. Wait for a response before continuing.'
         );
 
         console.log('Chat response:', chatText);

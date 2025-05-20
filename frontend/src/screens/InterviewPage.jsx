@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { Send, X, Mic } from 'lucide-react';
+import { Send, X, Mic, Volume2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import axios from "axios";
 
 export default function InterviewPage() {
-  // Initialize messages with the first default question
   const [messages, setMessages] = useState([{ text: "Hello! I'm your interviewer. Let's get started. Give me your introduction.", sender: "ai" }]);
   const [inputMessage, setInputMessage] = useState('');
   const [isEndDialogOpen, setIsEndDialogOpen] = useState(false);
@@ -17,7 +17,6 @@ export default function InterviewPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    console.log(navigator.mediaDevices);
     navigator.mediaDevices.getUserMedia({ audio: true })
       .then(stream => {
         const options = { mimeType: 'audio/webm' };
@@ -93,40 +92,28 @@ export default function InterviewPage() {
 
     if (audioBlob) {
       const audioUrl = URL.createObjectURL(audioBlob);
-      setMessages(prev => [...prev, {
-        sender: 'user',
-        isAudio: true,
-        audioUrl,
-        text: 'Audio message'
-      }]);
+      setMessages(prev => [...prev, { sender: 'user', isAudio: true, audioUrl, text: 'Audio message' }]);
 
       const formData = new FormData();
       formData.append('audio', audioBlob, 'recording.webm');
       formData.append('sessionId', new URLSearchParams(window.location.search).get('sessionId'));
 
       try {
-        await fetch('http://localhost:5000/api/v1/interview/voice-upload', {
+        const response = await fetch('http://localhost:5000/api/v1/interview/voice-upload', {
           method: 'POST',
           body: formData,
-        })
-          .then(response => response.json())
-          .then(data => {
-            setMessages(prev => [...prev,
-            { text: data.apiResponse.chatText, sender: 'ai' }
-            ]);
-            setCount(prev => prev + 1); // Increment count
-            setSimilarity(prev => {
-              const newCount = count + 1; // Use the updated count value
-              if (newCount === 0) return 0; // Avoid division by zero
-              const newSimilarity = (prev + Number(data.similarity)) / newCount;
-              return newSimilarity;
-            });
-            setInputMessage('');
-          });
+        });
+        const data = await response.json();
+        setMessages(prev => [...prev, { text: data.apiResponse.chatText, sender: 'ai' }]);
+        setCount(prev => prev + 1);
+        setSimilarity(prev => {
+          const newCount = count + 1;
+          return newCount === 0 ? 0 : (prev + Number(data.similarity)) / newCount;
+        });
+        setInputMessage('');
       } catch (error) {
         console.error('Error sending audio:', error);
       }
-
       setAudioBlob(null);
     } else if (inputMessage.trim()) {
       setMessages(prev => [...prev, { text: inputMessage, sender: 'user' }]);
@@ -135,8 +122,46 @@ export default function InterviewPage() {
   };
 
   const handleEndInterview = () => setIsEndDialogOpen(true);
-  const confirmEndInterview = () => {
-    navigate('/interview-result', { state: { similarity } });
+
+  const confirmEndInterview = async () => {
+    try {
+      const response = await axios.post("http://localhost:5000/api/v1/interview/evaluate");
+      const { similarity } = response.data;
+      navigate("/interview-result", { state: { similarity } });
+    } catch (error) {
+      console.error("Evaluation error:", error);
+      alert("Failed to evaluate interview. Please try again.");
+    }
+  };
+
+  useEffect(() => {
+    const lastMessage = messages[messages.length - 1];
+    if (lastMessage?.sender === 'ai') {
+      const speak = () => {
+        const voices = window.speechSynthesis.getVoices();
+        const indianVoice = voices.find(
+          (v) => v.lang === 'en-IN' || v.name.toLowerCase().includes('india')
+        );
+        const utterance = new SpeechSynthesisUtterance(lastMessage.text);
+        utterance.voice = indianVoice || voices.find(v => v.lang.startsWith('en'));
+        utterance.lang = 'en-IN';
+        window.speechSynthesis.speak(utterance);
+      };
+      if (window.speechSynthesis.getVoices().length === 0) {
+        window.speechSynthesis.onvoiceschanged = speak;
+      } else {
+        speak();
+      }
+    }
+  }, [messages]);
+
+  const speakText = (text) => {
+    const voices = window.speechSynthesis.getVoices();
+    const indianVoice = voices.find(v => v.lang === 'en-IN' || v.name.toLowerCase().includes('india'));
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.voice = indianVoice || voices.find(v => v.lang.startsWith('en'));
+    utterance.lang = 'en-IN';
+    window.speechSynthesis.speak(utterance);
   };
 
   return (
@@ -155,12 +180,18 @@ export default function InterviewPage() {
           <div className="overflow-y-auto flex-grow">
             {messages.map((message, index) => (
               <div key={index} className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'} mb-4`}>
-                <div className={`inline-block px-4 py-2 rounded-lg shadow ${message.sender === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted text-card-foreground'
-                  }`}>
+                <div className={`inline-block px-4 py-2 rounded-lg shadow ${message.sender === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted text-card-foreground'}`}>
                   {message.isAudio ? (
                     <audio controls src={message.audioUrl} className="w-48" />
                   ) : (
-                    message.text
+                    <div className="flex items-center space-x-2">
+                      <span>{message.text}</span>
+                      {message.sender === 'ai' && (
+                        <button onClick={() => speakText(message.text)}>
+                          <Volume2 className="w-4 h-4 text-gray-500 hover:text-black" />
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
@@ -168,29 +199,16 @@ export default function InterviewPage() {
           </div>
 
           <form onSubmit={handleSendMessage} className="mt-4">
-            {micAccessError && (
-              <div className="text-red-500 text-sm mb-2">{micAccessError}</div>
-            )}
-
-            {isRecording && (
-              <div className="flex items-center text-red-500 text-sm mb-2">
-                <Mic className="h-4 w-4 mr-2" /> Recording...
-              </div>
-            )}
-
+            {micAccessError && <div className="text-red-500 text-sm mb-2">{micAccessError}</div>}
+            {isRecording && <div className="flex items-center text-red-500 text-sm mb-2"><Mic className="h-4 w-4 mr-2" /> Recording...</div>}
             {audioBlob && (
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm text-muted-foreground">Audio ready to send</span>
-                <button
-                  type="button"
-                  onClick={() => setAudioBlob(null)}
-                  className="text-sm text-red-500 hover:text-red-700"
-                >
+                <button type="button" onClick={() => setAudioBlob(null)} className="text-sm text-red-500 hover:text-red-700">
                   Clear
                 </button>
               </div>
             )}
-
             <div className="flex items-center space-x-3">
               <input
                 type="text"
@@ -217,8 +235,7 @@ export default function InterviewPage() {
           onClick={handleEndInterview}
           className="w-40 flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
         >
-          <X className="h-5 w-5 mr-2" />
-          End Interview
+          <X className="h-5 w-5 mr-2" /> End Interview
         </button>
       </div>
 
@@ -231,15 +248,11 @@ export default function InterviewPage() {
               <button
                 onClick={() => setIsEndDialogOpen(false)}
                 className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-              >
-                Cancel
-              </button>
+              >Cancel</button>
               <button
                 onClick={confirmEndInterview}
                 className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-              >
-                End Interview
-              </button>
+              >End Interview</button>
             </div>
           </div>
         </div>

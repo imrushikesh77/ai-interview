@@ -12,6 +12,10 @@ const aiChat = async (prompt) => {
     try {
         const result = await model.generateContent([prompt]);
         const chatText = result?.response?.text();
+
+        // Wait for 3 seconds (3000 ms)
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+
         return {
             chatText,
         };

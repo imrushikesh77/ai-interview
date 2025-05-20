@@ -2,22 +2,21 @@ import { Link, useLocation } from "react-router-dom";
 
 export default function FeedbackPage() {
   const location = useLocation();
-  const { similarity } = location.state || { similarity: 0 };
+  const { similarity, summary, confidence } = location.state || { similarity: 0 };
+  console.log(similarity, summary, confidence);
   calculateConfidence(similarity);
-  console.log(similarity)
   let feedback = {
-    userName : "Rushikesh",
-    score : similarity * 100,
-    confidence : calculateConfidence(similarity),
-    strengths : ["Good technical knowledge", "Clear communication", "Confident coding"],
-    areasForImprovement : ["Time management", "More focus on problem explanation"],
-    feedbackDate : new Date().toLocaleDateString(),
-    detailedFeedback : "You displayed great technical understanding and solved the coding problems with confidence. However, time management could be improved, especially when explaining your approach. Focus more on structuring your answers clearly."
+    userName: "Rushikesh",
+    score: similarity,
+    confidence: Math.max(similarity - 13, 75),
+    strengths: ["Good technical knowledge", "Confident coding"],
+    areasForImprovement: ["Conceptual Understanding", "More focus on problem explanation"],
+    feedbackDate: new Date().toLocaleDateString(),
+    detailedFeedback: summary || "The candidate demonstrates a basic understanding of data structures, including arrays, linked lists, and hash maps. They correctly identify the purpose of data structures and their importance in efficient data management. They can articulate the differences between arrays and linked lists, highlighting the trade-offs between fixed-size memory allocation and dynamic growth. They also mention insertion, deletion, and traversal properties. However, their explanations lack depth and precision. Their understanding of hash map lookup and collision resolution is vague and inaccurate. The responses are somewhat fragmented and contain grammatical errors, impacting clarity."
   }
 
   function calculateConfidence(similarity) {
-    let conf = (Math.random() * 10) - 5;
-    return Math.max(similarity+conf, 0).toFixed(2);
+    return confidence;
   }
   return (
     <div className="min-h-screen bg-background flex flex-col justify-center py-12 sm:px-6 lg:px-8">

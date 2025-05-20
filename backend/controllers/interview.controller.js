@@ -1,5 +1,5 @@
 import convertAudioToText from "../utils/audioToText.js";
-import { similarityFromLevenshtein } from "../utils/evaluateAnswer.js";
+import { similarityAndConfidence } from "../utils/evaluateAnswer.js";
 import { aiChat } from "../utils/chat.js";
 import data from "../Data/data.js";
 import resumeArray from "../Data/resume.js";
@@ -28,23 +28,27 @@ const handleInterview = async (req, res) => {
     let sessionId = req.body.sessionId;
 
     let chatText = await aiChat(
-      'Generate next interview question based on the resume and job description. Resume: ' +
-      JSON.stringify(resumeArray) +
-      ' and the following conversation: ' +
-      JSON.stringify(data) +
-      'NOTE: As a response ask only one question at a time and wait for the user to respond before asking the next question. The next question can be a follow up question on the answer or any other topic based on resume. keep the questions short and concise. '
+      'Act as a technical interviewer. Start with very basic conceptual questions based on the candidate\'s resume and the job description.\n' +
+      'Resume: ' + JSON.stringify(resumeArray) + '\n' +
+      'Job Description: ' + req.body.jobDescription + '\n' +
+      'Conversation so far: ' + JSON.stringify(data) + '\n' +
+      'Ask only one conceptual question at a time. Start from the basics of each topic.\n' +
+      'Use a mix of "what", "why", "how", "when", and "can" questions. Keep each question short and simple (under 10 words).\n' +
+      'In your response, give only the next question. No explanation or extra text.' +
+      'IMPORTANT: Ask only 3 questions per topic before switching to a new one.'
     );
 
     data.push({
-      text: chatText,
+      text: chatText?.chatText || chatText,
       sender: 'ai',
     });
+    // let conf = similarityAndConfidence();
+    // console.log('Similarity:', conf.similarity);
 
     return res.status(200).json({
       sessionId: sessionId,
       apiResponse: chatText,
     });
-
 
 
   } catch (error) {
